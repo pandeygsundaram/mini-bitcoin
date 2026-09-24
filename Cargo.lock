@@ -475,6 +475,7 @@ dependencies = [
  "ciborium",
  "derive",
  "ecdsa",
+ "hex",
  "k256",
  "serde",
  "sha256",
