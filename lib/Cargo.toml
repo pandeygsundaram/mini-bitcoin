@@ -10,6 +10,7 @@ derive = "1.0.0"
 ecdsa = { version = "0.17.0", features = ["sha2", "serde", "pem"] }
 hex = "0.4.3"
 k256 = { version = "0.14.0", features = ["serde", "pem", "ecdsa"] }
+rand = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 sha256 = "1.6.0"
 uint = "0.10.1"

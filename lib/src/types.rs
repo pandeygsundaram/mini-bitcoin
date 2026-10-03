@@ -4,6 +4,7 @@ use uuid::Uuid;
 use crate::crypto::{PublicKey, Signature};
 
 use crate::U256;
+use crate::sha256::Hash;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain{
@@ -30,8 +31,8 @@ impl Block{
     pub fn new( header : BlockHeader , transactions: Vec<Transaction>)->Block{
         Block { header, transactions }
     }
-    pub fn hash(&self)-> ! {
-        unimplemented!()
+    pub fn hash(&self)-> Hash {
+        Hash::hash(&self)
     }
 }
 
@@ -58,8 +59,8 @@ impl BlockHeader{
         BlockHeader { timestamp, nonce, prev_block_hash, merkle_root, target }
     }
 
-    pub fn hash(&self)->!{
-        unimplemented!()
+    pub fn hash(&self)->Hash {
+        Hash::hash(&self)
     }
 
 }
@@ -67,7 +68,7 @@ impl BlockHeader{
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Transaction{
     pub inputs: Vec<TransactionInput>,
-    pub output : Vec<TransactionOutput>
+    pub outputs : Vec<TransactionOutput>
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TransactionInput{
@@ -84,3 +85,14 @@ pub struct TransactionOutput{
     pub pubkey : PublicKey
 }
 
+impl Transaction{
+    pub fn new( 
+        inputs: Vec<TransactionInput>,
+        outputs: Vec<TransactionOutput>
+    ) ->Self{
+        Transaction { inputs, outputs }
+    }
+    pub fn hash(&self)->Hash{
+        Hash::hash(&self)
+    }
+}
