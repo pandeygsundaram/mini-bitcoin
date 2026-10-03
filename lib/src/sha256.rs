@@ -3,12 +3,13 @@
 
 use core::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha256::digest;
 
 use crate::U256;
 
-#[derive(Serialize, Clone, Copy)]
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Hash(U256);
 
 impl Hash {
