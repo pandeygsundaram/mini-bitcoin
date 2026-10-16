@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::sha256::Hash;
-use crate::types::Transaction;
+use crate::{sha256::Hash, types::Transaction};
 
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
