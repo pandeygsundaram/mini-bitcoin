@@ -11,9 +11,11 @@ use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
-    pub utxos: HashMap<Hash, TransactionOutput>,
-    pub blocks: Vec<Block>,
-    pub target: U256,
+    utxos: HashMap<Hash, TransactionOutput>,
+    blocks: Vec<Block>,
+    target: U256,
+    #[serde(default, skip_serializing)]
+    mempool: Vec<Transaction>,
 }
 
 impl Blockchain {
@@ -22,8 +24,34 @@ impl Blockchain {
             utxos: HashMap::new(),
             blocks: vec![],
             target: crate::MIN_TARGET,
+            mempool: vec![],
         }
     }
+
+    // utxos
+    pub fn utxos(&self) -> &HashMap<Hash, TransactionOutput> {
+        &self.utxos
+    }
+    // target
+    pub fn target(&self) -> U256 {
+        self.target
+    }
+    // blocks
+    pub fn blocks(&self) -> impl Iterator<Item = &Block> {
+        self.blocks.iter()
+    }
+    // block height
+    pub fn block_height(&self) -> u64 {
+        self.blocks.len() as u64
+    }
+
+    // mempool
+    pub fn mempool(&self) -> &[Transaction] {
+        // later, we will also need to keep track of time
+        &self.mempool
+    }
+    
+
     pub fn rebuild_utxos(&mut self) {
         for block in &self.blocks {
             for transaction in &block.transactions {
@@ -82,7 +110,7 @@ impl Blockchain {
             block.transactions.iter().map(|tx| tx.hash()).collect();
 
         self.mempool
-            .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
+            .retain(|tx | !block_transactions.contains(&tx.hash()));
 
         self.blocks.push(block);
         self.try_adjust_target();
@@ -115,7 +143,20 @@ impl Blockchain {
 
         // multiply the current target by actual time divided by ideal time
 
-        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+        let new_target = BigDecimal::parse_bytes(&self.target.to_string().as_bytes(), 10)
+            .expect("BUG: impossible")
+            * (BigDecimal::from(time_diff_seconds) / BigDecimal::from(target_seconds));
+
+        // cut off decimal point and everything after
+        // it from string representation of new_target
+        let new_target_str = new_target
+            .to_string()
+            .split('.')
+            .next()
+            .expect("BUG: Expected a decimal point")
+            .to_owned();
+        let new_target: U256 = U256::from_str_radix(&new_target_str, 10).expect("BUG: impossible");
+
         // clamp new_target to be within the range of
         // 4 * self.target and self.target / 4
         let new_target = if new_target < self.target / 4 {
@@ -130,6 +171,32 @@ impl Blockchain {
         // set it to the minimum target
         self.target = new_target.min(crate::MIN_TARGET);
     }
+
+    pub fn add_to_mempool(&mut self , transaction : Transaction){
+
+
+
+        
+
+        self.mempool.push(transaction);
+        // sort by miner fees
+
+        self.mempool.sort_by_key(|transaction| {
+            let all_inputs = transaction.inputs.iter().map(|input| {
+                self.utxos.get(&input.prev_transaction_output_hash).expect("BUG: IMPOSSIBLE").value
+            }).sum::<u64>();
+
+            let all_outputs: u64 = transaction.outputs.iter().map(|output| output.value).sum();
+
+            let miner_fees : u64 = all_inputs-all_outputs;
+            miner_fees
+
+        });
+
+    }
+
+
+
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -312,6 +379,25 @@ impl BlockHeader {
 
     pub fn hash(&self) -> Hash {
         Hash::hash(&self)
+    }
+
+    pub fn mine(&mut self, steps: usize) -> bool {
+        // if the block already matches target, return early
+        if self.hash().matches(self.target) {
+            return true;
+        }
+        for _ in 0..steps {
+            if let Some(new_nonce) = self.nonce.checked_add(1) {
+                self.nonce = new_nonce;
+            } else {
+                self.nonce = 0;
+                self.timestamp = Utc::now()
+            }
+            if self.hash().matches(self.target) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
