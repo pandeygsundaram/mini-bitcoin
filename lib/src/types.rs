@@ -1,98 +1,349 @@
+use crate::U256;
+use crate::crypto::{PublicKey, Signature};
+use crate::error::{BtcError, Result};
+use crate::sha256::Hash;
+use crate::util::MerkleRoot;
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
-use crate::crypto::{PublicKey, Signature};
-
-use crate::U256;
-use crate::sha256::Hash;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Blockchain{
-    pub blocks : Vec<Block>,
-
+pub struct Blockchain {
+    pub utxos: HashMap<Hash, TransactionOutput>,
+    pub blocks: Vec<Block>,
+    pub target: U256,
 }
 
 impl Blockchain {
-    pub fn new()-> Self {
-        Blockchain { blocks: vec![] }
+    pub fn new() -> Self {
+        Blockchain {
+            utxos: HashMap::new(),
+            blocks: vec![],
+            target: crate::MIN_TARGET,
+        }
     }
-    pub fn add_block(&mut self, block : Block){
+    pub fn rebuild_utxos(&mut self) {
+        for block in &self.blocks {
+            for transaction in &block.transactions {
+                for input in &transaction.inputs {
+                    self.utxos.remove(&input.prev_transaction_output_hash);
+                }
+                for output in transaction.outputs.iter() {
+                    self.utxos.insert(transaction.hash(), output.clone());
+                }
+            }
+        }
+    }
+
+    pub fn add_block(&mut self, block: Block) -> Result<()> {
+        if self.blocks.is_empty() {
+            // if this is the first block, check if the
+            // block's prev_block_hash is all zeroes
+            if block.header.prev_block_hash != Hash::zero() {
+                println!("Zero Hash");
+                return Err(BtcError::InvalidBlock);
+            }
+        } else {
+            // if this is not the first block, check if the
+            // block's prev_block_hash is the hash of the last block
+            let last_block = self.blocks.last().unwrap();
+            if block.header.prev_block_hash != last_block.hash() {
+                println!("prev hash is wrong");
+                return Err(BtcError::InvalidBlock);
+            }
+
+            // check if the block's hash is less than the target
+
+            if !block.header.hash().matches(block.header.target) {
+                println!("does not match target");
+                return Err(BtcError::InvalidBlock);
+            }
+            // check if the block's merkle root is correct
+
+            let calculated_merkle_root = MerkleRoot::calculate(&block.transactions);
+            if calculated_merkle_root != block.header.merkle_root {
+                println!("invalid merkle root");
+                return Err(BtcError::InvalidMerkleRoot);
+            }
+
+            // check if the block's timestamp is after the
+            // last block's timestamp
+            if block.header.timestamp <= last_block.header.timestamp {
+                return Err(BtcError::InvalidBlock);
+            }
+            // Verify all transactions in the block
+            block.verify_transactions(self.block_height(), &self.utxos)?;
+        }
+
+        // Remove transactions from mempool that are now in the block
+        let block_transactions: HashSet<_> =
+            block.transactions.iter().map(|tx| tx.hash()).collect();
+
+        self.mempool
+            .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
+
         self.blocks.push(block);
-    }    
+        self.try_adjust_target();
+        Ok(())
+    }
+
+    pub fn try_adjust_target(&mut self) {
+        if self.blocks.is_empty() {
+            return;
+        }
+        if self.blocks.len() % crate::DIFFICULTY_UPDATE_INTERVAL as usize != 0 {
+            return;
+        }
+        // measure the time it took to mine the last
+        // crate::DIFFICULTY_UPDATE_INTERVAL blocks
+        // with chrono
+
+        let start_time = self.blocks
+            [self.blocks.len() - crate::DIFFICULTY_UPDATE_INTERVAL as usize]
+            .header
+            .timestamp;
+        let end_time = self.blocks.last().unwrap().header.timestamp;
+
+        let time_diff = end_time - start_time;
+        // convert time_diff to seconds
+        let time_diff_seconds = time_diff.num_seconds();
+
+        // calculate the ideal number of seconds
+        let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
+
+        // multiply the current target by actual time divided by ideal time
+
+        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+        // clamp new_target to be within the range of
+        // 4 * self.target and self.target / 4
+        let new_target = if new_target < self.target / 4 {
+            self.target / 4
+        } else if new_target > self.target * 4 {
+            self.target * 4
+        } else {
+            new_target
+        };
+
+        // if the new target is more than the minimum target,
+        // set it to the minimum target
+        self.target = new_target.min(crate::MIN_TARGET);
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Block{
-    pub header : BlockHeader,
-    pub transactions : Vec<Transaction>,
+pub struct Block {
+    pub header: BlockHeader,
+    pub transactions: Vec<Transaction>,
 }
 
-impl Block{
-    pub fn new( header : BlockHeader , transactions: Vec<Transaction>)->Block{
-        Block { header, transactions }
+impl Block {
+    pub fn new(header: BlockHeader, transactions: Vec<Transaction>) -> Block {
+        Block {
+            header,
+            transactions,
+        }
     }
-    pub fn hash(&self)-> Hash {
+    pub fn hash(&self) -> Hash {
         Hash::hash(&self)
     }
+
+    pub fn calculate_miner_fees(&self, utxos: &HashMap<Hash, TransactionOutput>) -> Result<u64> {
+        let mut inputs: HashMap<Hash, TransactionOutput> = HashMap::new();
+        let mut outputs: HashMap<Hash, TransactionOutput> = HashMap::new();
+
+        // Check every transaction after coinbase
+        for transaction in self.transactions.iter().skip(1) {
+            for input in &transaction.inputs {
+                // inputs do not contain
+                // the values of the outputs
+                // so we need to match inputs
+                // to outputs
+
+                let prev_output = utxos.get(&input.prev_transaction_output_hash);
+                if prev_output.is_none() {
+                    return Err(BtcError::InvalidTransaction);
+                }
+                let prev_output = prev_output.unwrap();
+                if inputs.contains_key(&input.prev_transaction_output_hash) {
+                    println!("Already processed this one");
+                    return Err(BtcError::InvalidTransaction);
+                }
+                inputs.insert(input.prev_transaction_output_hash, prev_output.clone());
+            }
+            for output in &transaction.outputs {
+                if outputs.contains_key(&output.hash()) {
+                    return Err(BtcError::InvalidTransaction);
+                }
+                outputs.insert(output.hash(), output.clone());
+            }
+        }
+
+        let input_value: u64 = inputs.values().map(|output| output.value).sum();
+        let output_value: u64 = outputs.values().map(|output| output.value).sum();
+
+        Ok(input_value - output_value)
+    }
+
+    pub fn verify_coinbase_transaction(
+        &self,
+        predicted_block_height: u64,
+        utxos: &HashMap<Hash, TransactionOutput>,
+    ) -> Result<()> {
+        // coinbase tx is the first transaction in the block
+
+        let coinbase_transaction = &self.transactions[0];
+        if coinbase_transaction.inputs.len() != 0 {
+            return Err(BtcError::InvalidTransaction);
+        }
+        if coinbase_transaction.outputs.len() == 0 {
+            return Err(BtcError::InvalidTransaction);
+        }
+        let miner_fees = self.calculate_miner_fees(utxos)?;
+
+        let block_reward = crate::INITIAL_REWARD * 10u64.pow(8)
+            / 2u64.pow((predicted_block_height / crate::HALVING_INTERVAL) as u32);
+        let total_coinbase_outputs: u64 = coinbase_transaction
+            .outputs
+            .iter()
+            .map(|output| output.value)
+            .sum();
+
+        if total_coinbase_outputs != block_reward + miner_fees {
+            return Err(BtcError::InvalidTransaction);
+        }
+
+        Ok(())
+    }
+
+    pub fn verify_transactions(
+        &self,
+        predicted_block_height: u64,
+        utxos: &HashMap<Hash, TransactionOutput>,
+    ) -> Result<()> {
+        let mut inputs: HashMap<Hash, TransactionOutput> = HashMap::new();
+
+        // reject completely empty blocks
+        if self.transactions.is_empty() {
+            return Err(BtcError::InvalidTransaction);
+        }
+
+        // verify coinbase transaction
+        self.verify_coinbase_transaction(predicted_block_height, utxos)?;
+
+        for transaction in self.transactions.iter().skip(1) {
+            let mut input_value = 0;
+            let mut output_value = 0;
+
+            for input in &transaction.inputs {
+                let prev_output = utxos.get(&input.prev_transaction_output_hash);
+                if prev_output.is_none() {
+                    return Err(BtcError::InvalidTransaction);
+                }
+                let prev_output = prev_output.unwrap();
+                // prevent same-block double-spending
+                if inputs.contains_key(&input.prev_transaction_output_hash) {
+                    return Err(BtcError::InvalidTransaction);
+                }
+                // check if the signature is valid
+                if !input
+                    .signature
+                    .verify(&input.prev_transaction_output_hash, &prev_output.pubkey)
+                {
+                    return Err(BtcError::InvalidSignature);
+                }
+
+                input_value += prev_output.value;
+                inputs.insert(input.prev_transaction_output_hash, prev_output.clone());
+            }
+
+            for output in &transaction.outputs {
+                output_value += output.value;
+            }
+
+            // It is fine for output value to be less than input value
+            // as the difference is the fee for the miner
+
+            if input_value < output_value {
+                return Err(BtcError::InvalidTransaction);
+            }
+        }
+        Ok(())
+
+        // verify coinbase transaction
+        // self.verify_coinbase_transactoin(
+        //     predicted_block_height, utxos
+        // )?;
+        // Delete the ampersand before &self.transactions ↓
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct BlockHeader{
+pub struct BlockHeader {
     // timemstamp of block when it is mined
-    pub timestamp : DateTime<Utc>,
+    pub timestamp: DateTime<Utc>,
     // nonce which is used to mine the block
-    pub nonce : u64,
+    pub nonce: u64,
     // hash of prev block
-    pub prev_block_hash: [u8; 32],
+    pub prev_block_hash: Hash,
     // merkle of the block's transaction
-    pub merkle_root : [u8; 32],
+    pub merkle_root: MerkleRoot,
     // the target number miner were supposed to achieve
-    pub target: U256
-
+    pub target: U256,
 }
 
-
-
-impl BlockHeader{
-    pub fn new ( timestamp : DateTime<Utc>, nonce : u64, prev_block_hash : [u8;32], merkle_root : [u8;32] , target : U256 )-> BlockHeader{
-
-        BlockHeader { timestamp, nonce, prev_block_hash, merkle_root, target }
+impl BlockHeader {
+    pub fn new(
+        timestamp: DateTime<Utc>,
+        nonce: u64,
+        prev_block_hash: Hash,
+        merkle_root: MerkleRoot,
+        target: U256,
+    ) -> BlockHeader {
+        BlockHeader {
+            timestamp,
+            nonce,
+            prev_block_hash,
+            merkle_root,
+            target,
+        }
     }
 
-    pub fn hash(&self)->Hash {
+    pub fn hash(&self) -> Hash {
         Hash::hash(&self)
     }
-
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Transaction{
+pub struct Transaction {
     pub inputs: Vec<TransactionInput>,
-    pub outputs : Vec<TransactionOutput>
+    pub outputs: Vec<TransactionOutput>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TransactionInput{
-    pub prev_transaction_output_hash:[u8; 32],
-    pub signature : Signature
-
-
+pub struct TransactionInput {
+    pub prev_transaction_output_hash: Hash,
+    pub signature: Signature,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TransactionOutput{
-    pub value : u64,
-    pub unique_id : Uuid,
-    pub pubkey : PublicKey
+pub struct TransactionOutput {
+    pub value: u64,
+    pub unique_id: Uuid,
+    pub pubkey: PublicKey,
 }
 
-impl Transaction{
-    pub fn new( 
-        inputs: Vec<TransactionInput>,
-        outputs: Vec<TransactionOutput>
-    ) ->Self{
+impl TransactionOutput {
+    pub fn hash(&self) -> Hash {
+        Hash::hash(self)
+    }
+}
+
+impl Transaction {
+    pub fn new(inputs: Vec<TransactionInput>, outputs: Vec<TransactionOutput>) -> Self {
         Transaction { inputs, outputs }
     }
-    pub fn hash(&self)->Hash{
+    pub fn hash(&self) -> Hash {
         Hash::hash(&self)
     }
 }
