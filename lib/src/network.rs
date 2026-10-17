@@ -83,7 +83,7 @@ impl Message {
         Ok(())
     }
 
-    pub async fn read_async(
+    pub async fn receive_async(
         stream: &mut (impl AsyncRead + Unpin),
     ) -> Result<Self, ciborium::de::Error<IoError>> {
 
