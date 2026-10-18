@@ -48,7 +48,21 @@ async fn main() -> Result<()> {
         }
     }
 
-    Ok(())
+    // start a task to periodically cleanup the mempool
+    // normally, you would want to keep and join the handle
+    tokio::spawn(util::cleanup());
+    // and a task to periodically save the blockchain
+    tokio::spawn(util::save(blockchain_file.clone()));
+
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&addr).await?;
+    println!("Listening on {}", addr);
+    loop {
+        let (socket, _) = listener.accept().await?;
+        tokio::spawn(handler::handle_connection(socket));
+    }
+
+    // Ok(())
     // println!("Hello, world!");
 }
 
