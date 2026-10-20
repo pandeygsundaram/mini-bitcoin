@@ -1,4 +1,4 @@
-# Mini-Bitcoin 🪙
+# Mini-Bitcoin 
 
 An educational, lightweight implementation of a Bitcoin-like blockchain network written in **Rust**. It demonstrates fundamental blockchain principles from the ground up:
 
