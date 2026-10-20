@@ -1,1 +1,13 @@
 /target
+
+# Keys and credentials
+*.cbor
+*.pem
+
+# Blockchain database and state
+blockchain.cbor
+**/blockchain.cbor
+
+# Local wallet configurations
+wallet_config.toml
+wallet_config_*.toml

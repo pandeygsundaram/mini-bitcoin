@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
         .config
         .unwrap_or_else(|| PathBuf::from("wallet_config.toml"));
     // load the core
-    let mut core = Core::load(config_path.clone())?;
+    let mut core = Core::load(config_path.clone()).await?;
     if let Some(node) = cli.node {
         core.config.default_node = node;
     }
@@ -56,6 +56,8 @@ async fn main() -> Result<()> {
     tokio::spawn(update_utxos(core.clone()));
     // spawn transaction handler
     tokio::spawn(handle_transactions(tx_receiver.clone_async(), core.clone()));
+    // fetch initial utxos
+    let _ = core.fetch_utxos().await;
     // run the cli
     run_cli(core).await?;
 
