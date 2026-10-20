@@ -1,4 +1,4 @@
-use crate::core::{Config, Core, FeeConfig, FeeType, Recipient};
+use crate::core::{Config, Core, FeeConfig, FeeType, Key, Recipient};
 use anyhow::Result;
 use std::panic;
 use std::path::PathBuf;
@@ -29,17 +29,14 @@ pub fn setup_panic_hook() {
 /// Generate a dummy config
 pub fn generate_dummy_config(path: &PathBuf) -> Result<()> {
     let dummy_config = Config {
-        my_keys: vec![],
-        contacts: vec![
-            Recipient {
-                name: "Alice".to_string(),
-                key: PathBuf::from("alice.pub.pem"),
-            },
-            Recipient {
-                name: "Bob".to_string(),
-                key: PathBuf::from("bob.pub.pem"),
-            },
-        ],
+        my_keys: vec![Key {
+            public: PathBuf::from("Sundaram.pub.pem"),
+            private: PathBuf::from("Sundaram.priv.cbor"),
+        }],
+        contacts: vec![Recipient {
+            name: "Dilshad".to_string(),
+            key: PathBuf::from("Dilshad.pub.pem"),
+        }],
         default_node: "127.0.0.1:9000".to_string(),
         fee_config: FeeConfig {
             fee_type: FeeType::Percent,

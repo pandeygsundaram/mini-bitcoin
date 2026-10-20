@@ -90,6 +90,18 @@ pub async fn handle_connection(mut socket: TcpStream) {
             SubmitTemplate(block) => {
                 println!("received allegedly mined template");
                 let mut blockchain = crate::BLOCKCHAIN.write().await;
+
+                let expected_prev = blockchain
+                    .blocks()
+                    .last()
+                    .map(|last_block| last_block.hash())
+                    .unwrap_or(Hash::zero());
+                println!("Expected previous hash: {:?}", expected_prev);
+                println!(
+                    "Submitted previous hash: {:?}",
+                    block.header.prev_block_hash
+                );
+
                 if let Err(e) = blockchain.add_block(block.clone()) {
                     println!("block rejected: {e}, closing connection");
                     return;

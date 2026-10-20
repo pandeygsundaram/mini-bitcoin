@@ -61,7 +61,7 @@ impl Blockchain {
                 }
                 for output in transaction.outputs.iter() {
                     self.utxos
-                        .insert(transaction.hash(), (false, output.clone()));
+                        .insert(output.hash(), (false, output.clone()));
                 }
             }
         }
