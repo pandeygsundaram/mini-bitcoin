@@ -1,5 +1,27 @@
 # Continue the Mini-Bitcoin browser implementation
 
+## Workstation continuation update (2026-11-15)
+
+This update supersedes the original environment blockers recorded below.
+SSH access was enabled and the agent cloned the bundle into
+`/home/sundaram/data/super30/cohort-projects/mini-bitcoin-browser` on branch
+`feat/browser-runtime`. The pre-existing `mini-bitcoin` checkout was not edited.
+No user files or projects were deleted.
+
+Verified here: 8 JS tests, 7 release Rust tests, release WASM build, real WASM
+ABI smoke test, local browser wallet/mining/payment/reload test, global
+isolated-profile signaling/WebRTC/remote-miner/payment test, and native workspace
+`cargo check --workspace --locked`. All passed. The browser test runner was
+updated to Playwright 1.65.1 for Ubuntu 26.04 support, and the browser Cargo.lock
+was generated. Browser builds now use `--locked` for repeatable dependencies.
+
+Use `git log` for the latest workstation commit. The old implementation and
+handoff commits below remain historical references. Read the updated BROWSER.md
+for current verification and deployment instructions. The outstanding deployment
+step is configuring/hosting the separate HTTPS signaling and STUN/TURN services
+and testing across physical networks; no production deployment was performed.
+
+
 This is a task handoff, not a verbatim conversation transcript. Read this and
 BROWSER.md, inspect the code, and continue the implementation and verification.
 Do not restart the project or treat the existing source as fully verified.

@@ -187,7 +187,7 @@ atomicity. The WASM smoke test executes the actual exported ABI in Node.
 Optional browser checks (also configured in `.github/workflows/browser.yml`):
 
 ```sh
-npm install --no-save --package-lock=false playwright@1.56.1
+npm install --no-save --package-lock=false playwright@1.65.1
 npx playwright install chromium
 node scripts/test-browser.mjs
 node scripts/test-global-browser.mjs
@@ -198,12 +198,23 @@ The second uses isolated browser profiles, signaling and actual WebRTC for remot
 mining and payment propagation. It uses host ICE candidates on one machine;
 a real two-network test is still needed to verify your STUN/TURN deployment.
 
-Implementation-environment verification: eight JavaScript tests passed, as did
-JavaScript syntax checks and Rust formatting. Rust compilation, actual WASM
-execution and browser end-to-end tests could not run in that environment: k256
-and the WASM target were unavailable, outbound DNS was blocked, and listening
-sockets were disallowed. The CI workflow is supplied to run these checks in a
-network-enabled environment; its passing status has not been observed here.
+Verified on the workstation on 2026-11-15 (Ubuntu 26.04, Node 24.16,
+Rust 1.98, Playwright 1.65.1 / Chromium 159):
+
+- All eight JavaScript tests passed.
+- All seven Rust consensus tests passed in release mode.
+- The release WASM build and actual WASM ABI smoke test passed.
+- The local browser test passed: wallet creation, worker mining, payment,
+  peer synchronization, separate saved wallet profiles and reload recovery.
+- The global browser test passed: isolated profiles, signaling, real WebRTC,
+  remote mining, transaction acknowledgement and block propagation.
+- The unchanged native workspace passed `cargo check --workspace --locked`.
+- JavaScript syntax, Rust formatting and Git whitespace checks passed.
+
+The original Mac execution environment lacked network/toolchain access; those
+initial build blockers were resolved by continuing on the workstation. The CI
+workflow has not been run on GitHub here. Cross-network STUN/TURN deployment
+still requires your actual service configuration and a physical-network test.
 
 ## Current bounds
 

@@ -13,4 +13,4 @@ if ! command -v cargo >/dev/null 2>&1; then
   fi
 fi
 rustup target add wasm32-unknown-unknown
-cargo build --manifest-path "$REPO_ROOT/browser-core/Cargo.toml" --release --target wasm32-unknown-unknown
+cargo build --locked --manifest-path "$REPO_ROOT/browser-core/Cargo.toml" --release --target wasm32-unknown-unknown

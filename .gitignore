@@ -20,3 +20,5 @@ wallet_config_*.toml
 node_modules/
 .env
 .env.local
+
+.preview/
