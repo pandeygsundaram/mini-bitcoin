@@ -1,0 +1,15 @@
+{
+  "name": "mini-bitcoin-browser",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/dev.mjs",
+    "signaling": "node signaling/server.mjs",
+    "test": "node --test web/tests/*.test.mjs signaling/*.test.mjs",
+    "test:core": "cargo test --manifest-path browser-core/Cargo.toml",
+    "test:wasm": "node scripts/test-wasm.mjs"
+  }
+}

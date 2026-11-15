@@ -11,3 +11,12 @@ blockchain.cbor
 # Local wallet configurations
 wallet_config.toml
 wallet_config_*.toml
+
+# Browser build and local settings
+/dist/
+/browser-core/target/
+/.build/
+/.rustup-install.sh
+node_modules/
+.env
+.env.local

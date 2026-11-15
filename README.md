@@ -1,4 +1,20 @@
-# Mini-Bitcoin 
+# Mini-Bitcoin
+
+## Browser version (new)
+
+The `feat/browser-runtime` branch adds a Rust/WASM wallet, full node and miner,
+with browser persistence, local-tab networking and global WebRTC discovery.
+See **[BROWSER.md](BROWSER.md)** for local startup, Vercel deployment, signaling /
+STUN / TURN setup, protocol differences and verification limits.
+
+```sh
+npm run build
+npm run dev
+```
+
+The browser uses a separate v2 network. Existing native commands below retain
+their v1 protocol and data formats.
+
 
 An educational, lightweight implementation of a Bitcoin-like blockchain network written in **Rust**. It demonstrates fundamental blockchain principles from the ground up:
 

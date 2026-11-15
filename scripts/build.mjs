@@ -1,0 +1,13 @@
+import { spawnSync } from 'node:child_process';
+import { mkdir, cp, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const result=spawnSync('sh',['scripts/build-wasm.sh'],{cwd:root,stdio:'inherit'});
+if(result.status!==0)process.exit(result.status||1);
+await mkdir(new URL('../dist/',import.meta.url),{recursive:true});
+for(const file of ['index.html','style.css','src'])await cp(new URL(`../web/${file}`,import.meta.url),new URL(`../dist/${file}`,import.meta.url),{recursive:true});
+await cp(new URL('../browser-core/target/wasm32-unknown-unknown/release/mini_bitcoin_browser.wasm',import.meta.url),new URL('../dist/core.wasm',import.meta.url));
+const ice=JSON.parse(process.env.MINI_ICE_SERVERS||'[]');
+if(!Array.isArray(ice))throw new Error('MINI_ICE_SERVERS must be a JSON array');
+await writeFile(new URL('../dist/config.json',import.meta.url),JSON.stringify({url:process.env.MINI_DISCOVERY_URL||'',ice}));
+console.log('Built dist/ — frontend and Rust/WASM. Run npm run dev to open locally.');
