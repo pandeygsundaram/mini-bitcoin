@@ -216,6 +216,24 @@ initial build blockers were resolved by continuing on the workstation. The CI
 workflow has not been run on GitHub here. Cross-network STUN/TURN deployment
 still requires your actual service configuration and a physical-network test.
 
+## Record the browser walkthrough
+
+With Playwright/Chromium installed as above and `ffmpeg` plus `ffprobe` available:
+
+```sh
+npm run record
+```
+
+This launches its own preview/signaling servers on ports 18181/18787 and uses
+fresh isolated demo profiles. It records local wallets, mining and payments;
+isolated-profile WebRTC remote mining; node disconnect/catch-up; encrypted wallet
+and chain recovery; and mobile layout. It saves a captioned combined MP4, chapter
+MP4s, raw participant WebMs, screenshots, encrypted demo backups and a JSON report
+under `recordings/<timestamp>/`. Existing recordings and preview servers are
+preserved. Override ports with `MINI_RECORD_PORT` / `MINI_RECORD_SIGNAL_PORT`.
+These are browser recordings without audio; physical-network STUN/TURN is outside
+this local recording's coverage. Generated artifacts are excluded from Git.
+
 ## Current bounds
 
 This implementation is for a small educational network. It stores up to 10,000

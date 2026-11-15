@@ -26,6 +26,18 @@ This is a task handoff, not a verbatim conversation transcript. Read this and
 BROWSER.md, inspect the code, and continue the implementation and verification.
 Do not restart the project or treat the existing source as fully verified.
 
+## Recorded walkthrough (2026-11-15)
+
+A real Chromium walkthrough is saved under
+`recordings/2026-11-15T16-34-23-739Z/` on the workstation. The combined
+`full-walkthrough.mp4` is approximately 108 seconds, with 22 browser steps passed.
+It includes captioned side-by-side local and WebRTC participant views, remote
+mining, transactions, a node disconnecting and catching up, encrypted wallet /
+chain recovery, reload persistence and mobile layout. Chapter MP4s, raw WebMs,
+screenshots and report.json are preserved. No audio. Physical-network STUN/TURN
+is not part of this localhost recording. Run `npm run record` to create a new
+recording without replacing previous output. FFmpeg and Playwright are required.
+
 ## User's objective and accepted design
 
 Turn the existing Rust educational mini-bitcoin project into a browser app.
